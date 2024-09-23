@@ -12,6 +12,8 @@ from torchvision.datasets.cityscapes import Cityscapes
 from torchvision.transforms.functional import to_pil_image
 from tqdm import tqdm
 
+import tifffile as tif
+
 
 def bit_get(val, idx):
     """Gets the bit value.
@@ -93,23 +95,28 @@ class DirectoryDataset(Dataset):
 
     def __getitem__(self, index):
         image_fn = self.img_files[index]
-        img = Image.open(join(self.img_dir, image_fn))
+        #img = Image.open(join(self.img_dir, image_fn))
+        img = tif.imread(join(self.img_dir, image_fn))
+        img = (img - np.min(img)) / (np.max(img) - np.min(img))
+        img = np.rint(img * 255).astype(np.uint8)
+        img = np.stack([img, img, img], axis=-1)
+        img = Image.fromarray(img)
 
-        if self.label_files is not None:
-            label_fn = self.label_files[index]
-            label = Image.open(join(self.label_dir, label_fn))
+        #if self.label_files is not None:
+        #    label_fn = self.label_files[index]
+        #    label = Image.open(join(self.label_dir, label_fn))
 
         seed = np.random.randint(2147483647)
         random.seed(seed)
         torch.manual_seed(seed)
         img = self.transform(img)
 
-        if self.label_files is not None:
-            random.seed(seed)
-            torch.manual_seed(seed)
-            label = self.target_transform(label)
-        else:
-            label = torch.zeros(img.shape[1], img.shape[2], dtype=torch.int64) - 1
+        #if self.label_files is not None:
+        #    random.seed(seed)
+        #    torch.manual_seed(seed)
+        #    label = self.target_transform(label)
+        #else:
+        label = torch.zeros(img.shape[1], img.shape[2], dtype=torch.int64) - 1
 
         mask = (label > 0).to(torch.float32)
         return img, label, mask
